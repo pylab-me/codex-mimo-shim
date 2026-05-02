@@ -1,4 +1,4 @@
-name: Release closed-source binary
+name: Release-CI
 
 on:
   workflow_dispatch:
@@ -58,6 +58,10 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG: ${{ secrets.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}
+      CODEX_MIMO_SHIM_PRIVATE_REPO_REF: ${{ secrets.CODEX_MIMO_SHIM_PRIVATE_REPO_REF }}
+
     steps:
       - name: Checkout public distribution repo
         uses: actions/checkout@v6
@@ -67,14 +71,14 @@ jobs:
       - name: Checkout private source
         uses: actions/checkout@v6
         with:
-          repository: ${{ vars.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}
+          repository: ${{ env.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          ref: ${{ inputs.private_ref || vars.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}
+          ref: ${{ inputs.private_ref || env.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}
           path: private-src
           persist-credentials: false
 
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ inputs.rust_toolchain }}
           target: ${{ matrix.platform.target }}
@@ -96,8 +100,8 @@ jobs:
           "BUILD_CARGO_LOCK_SHA256=$lockHash" >> $env:GITHUB_ENV
           "BUILD_CI_WORKFLOW_SHA256=$workflowHash" >> $env:GITHUB_ENV
           "BUILD_PUBLIC_BUILD_RS_SHA256=$buildRsHash" >> $env:GITHUB_ENV
-          "BUILD_SOURCE_REF=${{ inputs.private_ref || vars.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}" >> $env:GITHUB_ENV
-          "BUILD_SOURCE_REPOSITORY=${{ vars.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}" >> $env:GITHUB_ENV
+          "BUILD_SOURCE_REF=${{ inputs.private_ref || env.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}" >> $env:GITHUB_ENV
+          "BUILD_SOURCE_REPOSITORY=${{ env.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}" >> $env:GITHUB_ENV
           "BUILD_RELEASE_VERSION=${{ inputs.version }}" >> $env:GITHUB_ENV
           "BUILD_RELEASE_TARGET=${{ matrix.platform.target }}" >> $env:GITHUB_ENV
 
@@ -110,8 +114,8 @@ jobs:
             name = "${{ inputs.binary_name }}"
             version = "${{ inputs.version }}"
             source_visibility = "private"
-            private_repository = "${{ vars.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}"
-            private_ref = "${{ inputs.private_ref || vars.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}"
+            private_repository = "${{ env.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}"
+            private_ref = "${{ inputs.private_ref || env.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}"
             target = "${{ matrix.platform.target }}"
             profile = "release"
             rust_toolchain = "${{ inputs.rust_toolchain }}"
@@ -227,7 +231,7 @@ jobs:
           fi
 
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.platform.artifact_name }}
           path: |
