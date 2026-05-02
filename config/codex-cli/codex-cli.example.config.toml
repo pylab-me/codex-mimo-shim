@@ -1,0 +1,22 @@
+[model_providers.xiaomi-mimo]
+name = "RelayForge"
+base_url = "http://127.0.0.1:33300/v1/"
+wire_api = "responses"
+api_key = "no-api-key"
+experimental_bearer_token = "no-api-key"
+
+[profiles.xiaomi-pro]
+name = "mimo-v2.5-pro"
+model = "mimo-v2.5-pro"
+model_provider = "xiaomi-mimo"
+model_reasoning_effort = "low"
+model_verbosity = "medium"
+model_catalog_json = "${REPLACE_YOUR_USER_DIR}/.codex/model-catalogs/mimo.json"
+
+[profiles.xiaomi]
+name = "mimo-v2.5"
+model = "mimo-v2.5"
+model_provider = "xiaomi-mimo"
+model_reasoning_effort = "low"
+model_verbosity = "medium"
+model_catalog_json = "${REPLACE_YOUR_USER_DIR}/.codex/model-catalogs/mimo.json"

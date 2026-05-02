@@ -254,16 +254,24 @@ jobs:
           cp -f ./Cargo.lock ./dist/Cargo.lock
           cp -f ./Cargo.lock.sha256 ./dist/Cargo.lock.sha256
 
-          if [ -f ./private-src/config.example.yaml ]; then
-            cp ./private-src/config.example.yaml ./dist/config.example.yaml
-          elif [ -f ./config/config.example.yaml ]; then
+          if [ -f ./config/config.example.yaml ]; then
             cp ./config/config.example.yaml ./dist/config.example.yaml
           fi
 
-          if [ -f ./private-src/config.example.json ]; then
-            cp ./private-src/config.example.json ./dist/config.example.json
-          elif [ -f ./config/config.example.json ]; then
+          if [ -f ./config/config.example.json ]; then
             cp ./config/config.example.json ./dist/config.example.json
+          fi
+          
+          if [ -f ./config/codex-cli/codex-cli.example.config.toml ]; then
+            cp ./config/codex-cli/codex-cli.example.config.toml ./dist/codex-cli.example.config.toml
+          fi      
+          
+          if [ -f ./config/codex-cli/mimo.json ]; then
+            cp ./config/codex-cli/mimo.json ./dist/mimo.json
+          fi
+
+          if [ -f ./config/codex-cli/README.md ]; then
+            cp ./config/codex-cli/README.md ./dist/CODEX-CONFIG-README.md
           fi
 
           cp ./README.md ./dist/README.txt

@@ -1,12 +1,29 @@
 server:
-  bind: 127.0.0.1:32026
+  host: 127.0.0.1
+  port: 33300
 
 upstream:
   base_url: https://token-plan-cn.xiaomimimo.com/v1
+  # Prefer overriding this with MIMO_API_KEY / XIAOMIMIMO_API_KEY.
   api_key: NO-KEY
   model: mimo-v2.5-pro
   models:
     - mimo-v2.5-pro
 
-logging:
-  level: info
+#generation:
+#  # These defaults are used only when Codex does not send the field.
+#  default_temperature: 0.85
+#  default_top_p: 0.95
+#  default_max_output_tokens: 131072
+
+http:
+  request_timeout_secs: 300
+  http2_prior_knowledge: false
+
+behavior:
+  access_log: true
+  response_store_max: 1000
+  forward_parallel_tool_calls: true
+
+log:
+  level: codex_mimo_shim=info,tower_http=warn
