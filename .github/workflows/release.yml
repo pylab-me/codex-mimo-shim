@@ -7,13 +7,10 @@ on:
         description: "Release version, e.g. v0.1.7"
         required: true
         type: string
-      private_repository:
-        description: "Private source repository, e.g. owner/codex-mimo-shim-private"
-        required: true
-        type: string
       private_ref:
         description: "Private repo ref, tag, branch, or commit"
-        required: true
+        required: false
+        default: "main"
         type: string
       binary_name:
         description: "Release binary name without .exe"
@@ -63,16 +60,16 @@ jobs:
 
     steps:
       - name: Checkout public distribution repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
       - name: Checkout private source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          repository: ${{ inputs.private_repository }}
+          repository: ${{ vars.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          ref: ${{ inputs.private_ref }}
+          ref: ${{ inputs.private_ref || vars.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}
           path: private-src
           persist-credentials: false
 
@@ -99,8 +96,8 @@ jobs:
           "BUILD_CARGO_LOCK_SHA256=$lockHash" >> $env:GITHUB_ENV
           "BUILD_CI_WORKFLOW_SHA256=$workflowHash" >> $env:GITHUB_ENV
           "BUILD_PUBLIC_BUILD_RS_SHA256=$buildRsHash" >> $env:GITHUB_ENV
-          "BUILD_SOURCE_REF=${{ inputs.private_ref }}" >> $env:GITHUB_ENV
-          "BUILD_SOURCE_REPOSITORY=${{ inputs.private_repository }}" >> $env:GITHUB_ENV
+          "BUILD_SOURCE_REF=${{ inputs.private_ref || vars.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}" >> $env:GITHUB_ENV
+          "BUILD_SOURCE_REPOSITORY=${{ vars.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}" >> $env:GITHUB_ENV
           "BUILD_RELEASE_VERSION=${{ inputs.version }}" >> $env:GITHUB_ENV
           "BUILD_RELEASE_TARGET=${{ matrix.platform.target }}" >> $env:GITHUB_ENV
 
@@ -113,8 +110,8 @@ jobs:
             name = "${{ inputs.binary_name }}"
             version = "${{ inputs.version }}"
             source_visibility = "private"
-            private_repository = "${{ inputs.private_repository }}"
-            private_ref = "${{ inputs.private_ref }}"
+            private_repository = "${{ vars.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}"
+            private_ref = "${{ inputs.private_ref || vars.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}"
             target = "${{ matrix.platform.target }}"
             profile = "release"
             rust_toolchain = "${{ inputs.rust_toolchain }}"
@@ -230,7 +227,7 @@ jobs:
           fi
 
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v8
         with:
           name: release-${{ matrix.platform.artifact_name }}
           path: |
@@ -252,7 +249,7 @@ jobs:
 
     steps:
       - name: Checkout public distribution repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -268,7 +265,7 @@ jobs:
           find artifacts -name sha256sums.txt -print0 | sort -z | xargs -0 cat > sha256sums.txt
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.binary_name }} ${{ inputs.version }}
