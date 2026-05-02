@@ -1,10 +1,14 @@
 name: Release-CI
 
+concurrency:
+  group: release-ci
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, e.g. v0.1.7"
+        description: "Release version, e.g. v0.1.6"
         required: true
         type: string
       private_ref:
@@ -20,11 +24,15 @@ on:
       rust_toolchain:
         description: "Rust toolchain"
         required: true
-        default: "nightly"
+        default: "stable"
         type: string
 
 permissions:
   contents: read
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   release:
@@ -78,131 +86,173 @@ jobs:
           persist-credentials: false
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ inputs.rust_toolchain }}
-          target: ${{ matrix.platform.target }}
+          targets: ${{ matrix.platform.target }}
+          components: rustfmt
+
+      - name: Cache Cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Inject public build.rs
-        shell: pwsh
-        run: |
-          Copy-Item .\build.rs .\private-src\build.rs -Force
-
-      - name: Calculate release fingerprints
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $lockHash = (Get-FileHash .\private-src\Cargo.lock -Algorithm SHA256).Hash.ToLower()
-          $workflowHash = (Get-FileHash .\.github\workflows\release.yml -Algorithm SHA256).Hash.ToLower()
-          $buildRsHash = (Get-FileHash .\build.rs -Algorithm SHA256).Hash.ToLower()
-
-          "BUILD_CARGO_LOCK_SHA256=$lockHash" >> $env:GITHUB_ENV
-          "BUILD_CI_WORKFLOW_SHA256=$workflowHash" >> $env:GITHUB_ENV
-          "BUILD_PUBLIC_BUILD_RS_SHA256=$buildRsHash" >> $env:GITHUB_ENV
-          "BUILD_SOURCE_REF=${{ inputs.private_ref || env.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}" >> $env:GITHUB_ENV
-          "BUILD_SOURCE_REPOSITORY=${{ env.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}" >> $env:GITHUB_ENV
-          "BUILD_RELEASE_VERSION=${{ inputs.version }}" >> $env:GITHUB_ENV
-          "BUILD_RELEASE_TARGET=${{ matrix.platform.target }}" >> $env:GITHUB_ENV
-
-          Copy-Item .\private-src\Cargo.lock .\Cargo.lock -Force
-          $lockHash | Out-File -Encoding ascii .\Cargo.lock.sha256
-          $workflowHash | Out-File -Encoding ascii .\release.yml.sha256
-          $buildRsHash | Out-File -Encoding ascii .\build.rs.sha256
-
-          $metadata = [ordered]@{
-            name = "${{ inputs.binary_name }}"
-            version = "${{ inputs.version }}"
-            source_visibility = "private"
-            private_repository = "${{ env.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}"
-            private_ref = "${{ inputs.private_ref || env.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}"
-            target = "${{ matrix.platform.target }}"
-            profile = "release"
-            rust_toolchain = "${{ inputs.rust_toolchain }}"
-            cargo_lock_sha256 = $lockHash
-            release_workflow_sha256 = $workflowHash
-            public_build_rs_sha256 = $buildRsHash
-            built_by = "github-actions"
-            runner = "${{ matrix.platform.runner }}"
-            github_repository = "${{ github.repository }}"
-            github_run_id = "${{ github.run_id }}"
-            github_run_attempt = "${{ github.run_attempt }}"
-            github_actor = "${{ github.actor }}"
-          }
-          $metadata | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 .\build-info.json
-
-      - name: Format check
-        shell: pwsh
-        working-directory: private-src
-        run: |
-          $ErrorActionPreference = "Stop"
-          cargo +${{ inputs.rust_toolchain }} fmt --check
-
-      - name: Build release
-        shell: pwsh
-        working-directory: private-src
-        run: |
-          $ErrorActionPreference = "Stop"
-          cargo +${{ inputs.rust_toolchain }} build --release --locked --target ${{ matrix.platform.target }}
-
-      - name: Package release assets (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $binary = "${{ inputs.binary_name }}${{ matrix.platform.binary_suffix }}"
-          $archiveName = "${{ inputs.binary_name }}-${{ inputs.version }}-${{ matrix.platform.archive_name }}"
-          $buildInfoAssetName = "build-info-${{ matrix.platform.artifact_name }}.json"
-
-          New-Item -ItemType Directory -Force dist | Out-Null
-
-          Copy-Item ".\private-src\target\${{ matrix.platform.target }}\release\$binary" ".\dist\$binary" -Force
-          Copy-Item .\build-info.json .\dist\build-info.json -Force
-          Copy-Item .\Cargo.lock .\dist\Cargo.lock -Force
-          Copy-Item .\Cargo.lock.sha256 .\dist\Cargo.lock.sha256 -Force
-
-          if (Test-Path .\private-src\config.example.yaml) {
-            Copy-Item .\private-src\config.example.yaml .\dist\config.example.yaml -Force
-          } elseif (Test-Path .\config\config.example.yaml) {
-            Copy-Item .\config\config.example.yaml .\dist\config.example.yaml -Force
-          }
-
-          if (Test-Path .\private-src\config.example.json) {
-            Copy-Item .\private-src\config.example.json .\dist\config.example.json -Force
-          } elseif (Test-Path .\config\config.example.json) {
-            Copy-Item .\config\config.example.json .\dist\config.example.json -Force
-          }
-
-          Copy-Item .\README.md .\dist\README.txt -Force
-          Copy-Item .\VERIFY.md .\dist\VERIFY.txt -Force
-          Copy-Item .\SECURITY.md .\dist\SECURITY.txt -Force
-          Copy-Item .\LICENSE.txt .\dist\LICENSE.txt -Force
-
-          if (Test-Path $archiveName) {
-            Remove-Item $archiveName -Force
-          }
-          Compress-Archive -Path .\dist\* -DestinationPath $archiveName -Force
-          Copy-Item .\build-info.json ".\$buildInfoAssetName" -Force
-
-          Get-FileHash ".\$archiveName" -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $archiveName" } |
-            Out-File -Encoding ascii .\sha256sums.txt
-
-      - name: Package release assets (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
         run: |
           set -euo pipefail
+          cp ./build.rs ./private-src/build.rs
+
+      - name: Calculate release fingerprints
+        run: |
+          set -euo pipefail
+
+          sha256_file() {
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$1" | awk '{print tolower($1)}'
+            elif command -v shasum >/dev/null 2>&1; then
+              shasum -a 256 "$1" | awk '{print tolower($1)}'
+            elif command -v certutil >/dev/null 2>&1; then
+              certutil -hashfile "$1" SHA256 | awk 'NF == 1 && $1 ~ /^[0-9A-Fa-f]{64}$/ {print tolower($1); exit}'
+            else
+              echo "No SHA256 tool found" >&2
+              exit 1
+            fi
+          }
+
+          find_python() {
+            if command -v python3 >/dev/null 2>&1; then
+              echo "python3"
+            elif command -v python >/dev/null 2>&1; then
+              echo "python"
+            else
+              echo "No Python executable found" >&2
+              exit 1
+            fi
+          }
+
+          lock_hash="$(sha256_file ./Cargo.lock)"
+          workflow_hash="$(sha256_file ./.github/workflows/release.yml)"
+          build_rs_hash="$(sha256_file ./build.rs)"
+          python_cmd="$(find_python)"
+
+          {
+            echo "BUILD_CARGO_LOCK_SHA256=$lock_hash"
+            echo "BUILD_CI_WORKFLOW_SHA256=$workflow_hash"
+            echo "BUILD_PUBLIC_BUILD_RS_SHA256=$build_rs_hash"
+            echo "BUILD_SOURCE_REF=${{ inputs.private_ref || env.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}"
+            echo "BUILD_SOURCE_REPOSITORY=${{ env.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}"
+            echo "BUILD_RELEASE_VERSION=${{ inputs.version }}"
+            echo "BUILD_RELEASE_TARGET=${{ matrix.platform.target }}"
+          } >> "$GITHUB_ENV"
+
+          cp -f ./Cargo.lock ./private-src/Cargo.lock
+          printf '%s\n' "$lock_hash" > ./Cargo.lock.sha256
+          printf '%s\n' "$workflow_hash" > ./release.yml.sha256
+          printf '%s\n' "$build_rs_hash" > ./build.rs.sha256
+
+          BUILD_METADATA_NAME="${{ inputs.binary_name }}" \
+          BUILD_METADATA_VERSION="${{ inputs.version }}" \
+          BUILD_METADATA_PRIVATE_REPOSITORY="${{ env.CODEX_MIMO_SHIM_PRIVATE_REPO_SLUG }}" \
+          BUILD_METADATA_PRIVATE_REF="${{ inputs.private_ref || env.CODEX_MIMO_SHIM_PRIVATE_REPO_REF || 'main' }}" \
+          BUILD_METADATA_TARGET="${{ matrix.platform.target }}" \
+          BUILD_METADATA_RUST_TOOLCHAIN="${{ inputs.rust_toolchain }}" \
+          BUILD_METADATA_CARGO_LOCK_SHA256="$lock_hash" \
+          BUILD_METADATA_RELEASE_WORKFLOW_SHA256="$workflow_hash" \
+          BUILD_METADATA_PUBLIC_BUILD_RS_SHA256="$build_rs_hash" \
+          BUILD_METADATA_RUNNER="${{ matrix.platform.runner }}" \
+          BUILD_METADATA_GITHUB_REPOSITORY="${{ github.repository }}" \
+          BUILD_METADATA_GITHUB_RUN_ID="${{ github.run_id }}" \
+          BUILD_METADATA_GITHUB_RUN_ATTEMPT="${{ github.run_attempt }}" \
+          BUILD_METADATA_GITHUB_ACTOR="${{ github.actor }}" \
+          "$python_cmd" - <<'PY'
+          import json
+          import os
+
+          metadata = {
+              "name": os.environ["BUILD_METADATA_NAME"],
+              "version": os.environ["BUILD_METADATA_VERSION"],
+              "source_visibility": "private",
+              "private_repository": os.environ["BUILD_METADATA_PRIVATE_REPOSITORY"],
+              "private_ref": os.environ["BUILD_METADATA_PRIVATE_REF"],
+              "target": os.environ["BUILD_METADATA_TARGET"],
+              "profile": "release",
+              "rust_toolchain": os.environ["BUILD_METADATA_RUST_TOOLCHAIN"],
+              "cargo_lock_sha256": os.environ["BUILD_METADATA_CARGO_LOCK_SHA256"],
+              "release_workflow_sha256": os.environ["BUILD_METADATA_RELEASE_WORKFLOW_SHA256"],
+              "public_build_rs_sha256": os.environ["BUILD_METADATA_PUBLIC_BUILD_RS_SHA256"],
+              "built_by": "github-actions",
+              "runner": os.environ["BUILD_METADATA_RUNNER"],
+              "github_repository": os.environ["BUILD_METADATA_GITHUB_REPOSITORY"],
+              "github_run_id": os.environ["BUILD_METADATA_GITHUB_RUN_ID"],
+              "github_run_attempt": os.environ["BUILD_METADATA_GITHUB_RUN_ATTEMPT"],
+              "github_actor": os.environ["BUILD_METADATA_GITHUB_ACTOR"],
+          }
+
+          with open("build-info.json", "w", encoding="utf-8") as f:
+              json.dump(metadata, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+          PY
+
+      - name: Format check
+        working-directory: private-src
+        run: |
+          set -euo pipefail
+          cargo "+${{ inputs.rust_toolchain }}" fmt --check
+
+      - name: Build release
+        working-directory: private-src
+        run: |
+          set -euo pipefail
+          cargo "+${{ inputs.rust_toolchain }}" build --release --locked --target "${{ matrix.platform.target }}"
+
+      - name: Package release assets
+        run: |
+          set -euo pipefail
+
+          sha256_file() {
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$1" | awk '{print tolower($1)}'
+            elif command -v shasum >/dev/null 2>&1; then
+              shasum -a 256 "$1" | awk '{print tolower($1)}'
+            elif command -v certutil >/dev/null 2>&1; then
+              certutil -hashfile "$1" SHA256 | awk 'NF == 1 && $1 ~ /^[0-9A-Fa-f]{64}$/ {print tolower($1); exit}'
+            else
+              echo "No SHA256 tool found" >&2
+              exit 1
+            fi
+          }
+
+          find_python() {
+            if command -v python3 >/dev/null 2>&1; then
+              echo "python3"
+            elif command -v python >/dev/null 2>&1; then
+              echo "python"
+            else
+              echo "No Python executable found" >&2
+              exit 1
+            fi
+          }
+
           binary="${{ inputs.binary_name }}${{ matrix.platform.binary_suffix }}"
           archive_name="${{ inputs.binary_name }}-${{ inputs.version }}-${{ matrix.platform.archive_name }}"
           build_info_asset_name="build-info-${{ matrix.platform.artifact_name }}.json"
+          python_cmd="$(find_python)"
 
+          rm -rf dist
           mkdir -p dist
 
           cp "./private-src/target/${{ matrix.platform.target }}/release/${binary}" "./dist/${binary}"
           cp ./build-info.json ./dist/build-info.json
-          cp ./Cargo.lock ./dist/Cargo.lock
-          cp ./Cargo.lock.sha256 ./dist/Cargo.lock.sha256
+          cp -f ./Cargo.lock ./dist/Cargo.lock
+          cp -f ./Cargo.lock.sha256 ./dist/Cargo.lock.sha256
 
           if [ -f ./private-src/config.example.yaml ]; then
             cp ./private-src/config.example.yaml ./dist/config.example.yaml
@@ -222,13 +272,34 @@ jobs:
           cp ./LICENSE.txt ./dist/LICENSE.txt
 
           rm -f "$archive_name"
-          tar -C dist -czf "$archive_name" .
+
+          case "$archive_name" in
+            *.zip)
+              "$python_cmd" - "$archive_name" <<'PY'
+          import pathlib
+          import sys
+          import zipfile
+
+          archive_name = sys.argv[1]
+          dist = pathlib.Path("dist")
+
+          with zipfile.ZipFile(archive_name, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+              for path in sorted(dist.rglob("*")):
+                  if path.is_file():
+                      zf.write(path, path.relative_to(dist).as_posix())
+          PY
+              ;;
+            *.tar.gz)
+              tar -C dist -czf "$archive_name" .
+              ;;
+            *)
+              echo "Unsupported archive format: $archive_name" >&2
+              exit 1
+              ;;
+          esac
+
           cp ./build-info.json "./${build_info_asset_name}"
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "$archive_name" | awk '{print tolower($1) "  " $2}' > ./sha256sums.txt
-          else
-            shasum -a 256 "$archive_name" | awk '{print tolower($1) "  " $2}' > ./sha256sums.txt
-          fi
+          printf '%s  %s\n' "$(sha256_file "$archive_name")" "$archive_name" > ./sha256sums.txt
 
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v7
@@ -251,6 +322,10 @@ jobs:
     permissions:
       contents: write
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout public distribution repo
         uses: actions/checkout@v6
@@ -258,12 +333,11 @@ jobs:
           persist-credentials: false
 
       - name: Download packaged artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
       - name: Merge checksum manifests
-        shell: bash
         run: |
           set -euo pipefail
           find artifacts -name sha256sums.txt -print0 | sort -z | xargs -0 cat > sha256sums.txt
