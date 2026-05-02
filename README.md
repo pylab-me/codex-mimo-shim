@@ -4,6 +4,39 @@
 
 This public repository is used for binary releases, release workflow review, verification materials, configuration examples, security policy, and issue tracking. The source code is maintained in a private repository.
 
+
+## Features and Limitations / 功能与限制
+
+[FEATURES.md](./FEATURES.md)
+
+**Before use, please customize `base_instructions` in [mimo.json](./config/codex-cli/mimo.json).**
+
+**使用前，请自行修改 [mimo.json](./config/codex-cli/mimo.json) 中的 `base_instructions`。**
+
+### Recommended codex-cli version / 推荐的 codex-cli 版本
+
+This project is recommended to be used with `codex-cli` version `0.116.0`.
+
+本项目建议搭配 `codex-cli` `0.116.0` 版本使用。
+
+```bash
+npm install -g @openai/codex@0.116.0
+```
+
+### Screenshot
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="./assets/screenshot1.webp" alt="Codex MiMo Shim screenshot 1" width="100%">
+    </td>
+    <td width="50%">
+      <img src="./assets/screenshot2.webp" alt="Codex MiMo Shim screenshot 2" width="100%">
+    </td>
+  </tr>
+</table>
+
+
 ## Distribution model
 
 ```text
