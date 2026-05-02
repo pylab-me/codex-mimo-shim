@@ -1,0 +1,12 @@
+server:
+  bind: 127.0.0.1:32026
+
+upstream:
+  base_url: https://token-plan-cn.xiaomimimo.com/v1
+  api_key: NO-KEY
+  model: mimo-v2.5-pro
+  models:
+    - mimo-v2.5-pro
+
+logging:
+  level: info
