@@ -6,8 +6,9 @@ upstream:
   base_url: https://token-plan-cn.xiaomimimo.com/v1
   # Prefer overriding this with MIMO_API_KEY / XIAOMIMIMO_API_KEY.
   api_key: NO-KEY
-  model: mimo-v2.5-pro
+  model: mimo-v2.5
   models:
+    - mimo-v2.5
     - mimo-v2.5-pro
 
 #generation:
