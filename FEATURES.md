@@ -10,7 +10,10 @@
 - Local /v1/responses endpoint
 - Local /v1/responses/{response_id} endpoint
 - Local /v1/models endpoint
+- (Experimental) /v1/responses/compact
 - Text-only request conversion
+- Image support
+- Codex pseudo-model passthrough in Codex desktop
 - Responses-style input to Chat Completions messages conversion
 - Chat Completions result to Responses-style output wrapping
 - Non-streaming response mode

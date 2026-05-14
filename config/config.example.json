@@ -28,6 +28,10 @@
     "models": [
       "mimo-v2.5",
       "mimo-v2.5-pro"
-    ]
+    ],
+    "aliases": {
+      "codex-auto-review": "mimo-v2.5"
+    },
+    "fallback_unknown_model_to_default": true
   }
 }

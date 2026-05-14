@@ -6,10 +6,17 @@ upstream:
   base_url: https://token-plan-cn.xiaomimimo.com/v1
   # Prefer overriding this with MIMO_API_KEY / XIAOMIMIMO_API_KEY.
   api_key: NO-KEY
+  # Provider default model. Unknown Codex pseudo-models can fall back to this.
   model: mimo-v2.5
+  # Provider-supported models exposed by /v1/models.
   models:
     - mimo-v2.5
     - mimo-v2.5-pro
+  # Client-facing aliases. Useful when Codex sends internal model names such as
+  # codex-auto-review that the Xiaomi provider does not recognize.
+  aliases:
+    codex-auto-review: mimo-v2.5
+  fallback_unknown_model_to_default: true
 
 #generation:
 #  # These defaults are used only when Codex does not send the field.
