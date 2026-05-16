@@ -17,12 +17,17 @@ upstream:
   aliases:
     codex-auto-review: mimo-v2.5
   fallback_unknown_model_to_default: true
+  thinking:
+    # Set true to send {"thinking":{"type":"enabled"}} to Xiaomi MiMo.
+    # When true, the shim stores and replays assistant.reasoning_content.
+    # When false, the shim does not persist or send reasoning_content.
+    enabled: false
 
-#generation:
-#  # These defaults are used only when Codex does not send the field.
-#  default_temperature: 0.85
-#  default_top_p: 0.95
-#  default_max_output_tokens: 131072
+generation:
+# These defaults are used only when Codex does not send the field.
+# default_temperature: 0.85
+# default_top_p: 0.95
+# default_max_output_tokens: 131072
 
 http:
   request_timeout_secs: 300

@@ -32,6 +32,9 @@
     "aliases": {
       "codex-auto-review": "mimo-v2.5"
     },
-    "fallback_unknown_model_to_default": true
+    "fallback_unknown_model_to_default": true,
+    "thinking": {
+      "enabled": false
+    }
   }
 }
