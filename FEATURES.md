@@ -4,6 +4,8 @@
 
 `codex-mimo-shim` provides a local compatibility layer that enables `Codex` to use Xiaomi MiMo.
 
+- Also tested on LongCat.
+
 ### Core features
 
 ```text
@@ -132,6 +134,7 @@ total_tokens       -> total_tokens
 - 本地 /v1/responses/{response_id} endpoint
 - 本地 /v1/models endpoint
 - text-only 请求转换
+- 图片/音频输入支持，默认对大于50M的数据进行提示
 - Responses-style input 转 Chat Completions messages
 - Chat Completions result 包装为 Responses-style output
 - 非流式响应模式

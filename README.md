@@ -15,9 +15,9 @@ This public repository is used for binary releases, release workflow review, ver
 
 ### Recommended codex-cli version / 推荐的 codex-cli 版本
 
-This project is recommended to be used with `codex-cli` version `0.116.0`.
+This project is recommended to be used with `codex-cli` version `0.116.0` (the latest version, `0.130.0`, has been tested).
 
-本项目建议搭配 `codex-cli` `0.116.0` 版本使用。
+本项目建议搭配 `codex-cli` `0.116.0` 版本使用（最新版本`0.130.0`已经测试）。
 
 ```bash
 npm install -g @openai/codex@0.116.0
