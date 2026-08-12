@@ -1,11 +1,9 @@
-use std::collections::HashSet;
-
 use serde_json::{Map, Value, json};
 use uuid::Uuid;
 
 use crate::error::ShimError;
 use crate::responses::tools::{
-    make_assistant_tool_calls_message, make_tool_message,
+    ToolIdentityRegistry, make_assistant_tool_calls_message, make_tool_message,
     response_function_call_item_to_chat_tool_call, responses_tools_to_chat_tools,
 };
 use crate::xiaomi::reasoning::{
@@ -31,7 +29,7 @@ pub struct ConvertedRequest {
     pub chat_payload: Value,
     pub chat_messages: Vec<Value>,
     pub parallel_tool_calls: bool,
-    pub custom_tool_names: HashSet<String>,
+    pub tool_registry: ToolIdentityRegistry,
 }
 
 pub fn convert_responses_to_chat(
@@ -119,7 +117,7 @@ pub fn convert_responses_to_chat(
         chat_payload: Value::Object(payload),
         chat_messages: messages,
         parallel_tool_calls,
-        custom_tool_names: tool_conversion.custom_tool_names,
+        tool_registry: tool_conversion.registry,
     })
 }
 

@@ -1,12 +1,10 @@
-use std::collections::HashSet;
-
 use serde_json::{Value, json};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::ShimError;
 use crate::responses::tools::{
-    chat_tool_calls_to_responses_items, make_assistant_tool_calls_message,
+    ToolIdentityRegistry, chat_tool_calls_to_responses_items, make_assistant_tool_calls_message,
 };
 use crate::xiaomi::reasoning::{
     ReasoningPolicy, apply_reasoning_policy_to_assistant_message, extract_reasoning_content,
@@ -23,7 +21,7 @@ pub fn build_response_object(
     response_id: &str,
     client_model: &str,
     base_chat_messages: &[Value],
-    custom_tool_names: &HashSet<String>,
+    tool_registry: &ToolIdentityRegistry,
     chat_result: ChatResult,
     parallel_tool_calls: bool,
     store: bool,
@@ -48,7 +46,7 @@ pub fn build_response_object(
         );
         updated.push(assistant_message);
         (
-            chat_tool_calls_to_responses_items(&tool_calls, custom_tool_names),
+            chat_tool_calls_to_responses_items(&tool_calls, tool_registry),
             String::new(),
         )
     } else {
@@ -231,7 +229,7 @@ mod tests {
             "resp_test",
             "mimo-v2.5-pro",
             &[],
-            &HashSet::new(),
+            &ToolIdentityRegistry::default(),
             chat_result,
             false,
             true,
@@ -270,7 +268,7 @@ mod tests {
             "resp_test",
             "mimo-v2.5-pro",
             &[],
-            &HashSet::new(),
+            &ToolIdentityRegistry::default(),
             chat_result,
             true,
             true,
@@ -305,7 +303,7 @@ mod tests {
             "resp_test",
             "mimo-v2.5-pro",
             &[],
-            &HashSet::new(),
+            &ToolIdentityRegistry::default(),
             chat_result,
             false,
             true,
@@ -385,7 +383,11 @@ mod tests {
             "resp_test",
             "mimo-v2.5",
             &[],
-            &HashSet::from([String::from("local_shell")]),
+            &crate::responses::tools::responses_tools_to_chat_tools(Some(&json!([{
+                "type": "custom",
+                "name": "local_shell"
+            }])))
+            .registry,
             chat_result,
             true,
             true,
