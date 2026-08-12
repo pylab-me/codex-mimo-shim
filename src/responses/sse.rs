@@ -246,3 +246,29 @@ pub fn failed_sse_events(response_id: &str, error: &ShimError) -> Vec<String> {
         "data: [DONE]\n\n".to_string(),
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emits_custom_tool_input_events() {
+        let response = json!({
+            "id": "resp_test",
+            "status": "completed",
+            "output": [{
+                "id": "ctc_local_call_1",
+                "type": "custom_tool_call",
+                "status": "completed",
+                "call_id": "call_1",
+                "name": "local_shell",
+                "input": "pwd"
+            }]
+        });
+
+        let events = buffered_sse_events(&response).join("");
+        assert!(events.contains("response.custom_tool_call_input.delta"));
+        assert!(events.contains("response.custom_tool_call_input.done"));
+        assert!(events.contains("\"input\":\"pwd\""));
+    }
+}

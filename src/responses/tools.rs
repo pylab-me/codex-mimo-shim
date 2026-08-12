@@ -433,4 +433,35 @@ mod tests {
             json!("{\"input\":\"pwd\"}")
         );
     }
+
+    #[test]
+    fn normalizes_responses_function_tool_choice() {
+        let converted = responses_tool_choice_to_chat_tool_choice(Some(&json!({
+            "type": "function",
+            "name": "lookup"
+        })))
+        .expect("tool choice should be forwarded");
+
+        assert_eq!(
+            converted,
+            json!({"type": "function", "function": {"name": "lookup"}})
+        );
+    }
+
+    #[test]
+    fn extracts_legacy_provider_function_call() {
+        let calls = extract_chat_tool_calls_from_message(&json!({
+            "function_call": {
+                "name": "lookup",
+                "arguments": {"query": "rust"}
+            }
+        }));
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0]["function"]["name"], json!("lookup"));
+        assert_eq!(
+            calls[0]["function"]["arguments"],
+            json!("{\"query\":\"rust\"}")
+        );
+    }
 }
