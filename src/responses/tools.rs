@@ -26,22 +26,31 @@ pub fn responses_tools_to_chat_tools(tools: Option<&Value>) -> ChatToolConversio
 
         match obj.get("type").and_then(Value::as_str) {
             Some("function") => {
-                let Some(name) = obj.get("name").and_then(Value::as_str) else {
+                let function = obj
+                    .get("function")
+                    .and_then(Value::as_object)
+                    .unwrap_or(obj);
+                let Some(name) = function.get("name").and_then(Value::as_str) else {
                     continue;
                 };
-                let description = obj.get("description").cloned().unwrap_or_else(|| json!(""));
-                let parameters = obj
+                let description = function
+                    .get("description")
+                    .cloned()
+                    .unwrap_or_else(|| json!(""));
+                let parameters = function
                     .get("parameters")
+                    .filter(|value| value.is_object())
                     .cloned()
                     .unwrap_or_else(|| json!({"type":"object","properties":{}}));
-                chat_tools.push(json!({
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": description,
-                        "parameters": parameters
-                    }
-                }));
+                let mut converted = json!({
+                    "name": name,
+                    "description": description,
+                    "parameters": parameters
+                });
+                if function.get("strict").and_then(Value::as_bool) == Some(true) {
+                    converted["strict"] = json!(true);
+                }
+                chat_tools.push(json!({"type": "function", "function": converted}));
             }
             Some("custom") => {
                 let Some(name) = obj.get("name").and_then(Value::as_str) else {
@@ -86,17 +95,17 @@ pub fn chat_tool_calls_to_responses_items(
         .iter()
         .filter_map(|call| {
             let obj = call.as_object()?;
-            let call_id = obj.get("id").and_then(Value::as_str).unwrap_or_else(|| {
-                obj.get("call_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("call_local_unknown")
-            });
+            let call_id = obj
+                .get("id")
+                .and_then(Value::as_str)
+                .or_else(|| obj.get("call_id").and_then(Value::as_str))
+                .unwrap_or("call_local_unknown");
             let function = obj.get("function").and_then(Value::as_object)?;
             let name = function.get("name").and_then(Value::as_str).unwrap_or("");
             let arguments = normalize_tool_arguments(function.get("arguments"));
             if custom_tool_names.contains(name) {
                 Some(json!({
-                    "id": format!("ctc_{}", call_id),
+                    "id": format!("ctc_local_{call_id}"),
                     "type": "custom_tool_call",
                     "status": "completed",
                     "call_id": call_id,
@@ -105,7 +114,7 @@ pub fn chat_tool_calls_to_responses_items(
                 }))
             } else {
                 Some(json!({
-                    "id": format!("fc_{}", call_id),
+                    "id": format!("fc_local_{call_id}"),
                     "type": "function_call",
                     "status": "completed",
                     "call_id": call_id,
