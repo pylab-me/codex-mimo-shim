@@ -30,6 +30,7 @@ pub fn buffered_sse_events(response: &Value) -> Vec<String> {
             match item.get("type").and_then(Value::as_str) {
                 Some("message") => append_message_events(&mut events, idx, item),
                 Some("function_call") => append_function_call_events(&mut events, idx, item),
+                Some("custom_tool_call") => append_custom_tool_call_events(&mut events, idx, item),
                 _ => {}
             }
 
@@ -84,9 +85,37 @@ fn stream_added_item(item: &Value) -> Value {
         Some("function_call") => {
             obj.insert("arguments".to_string(), json!(""));
         }
+        Some("custom_tool_call") => {
+            obj.insert("input".to_string(), json!(""));
+        }
         _ => {}
     }
     added
+}
+
+fn append_custom_tool_call_events(events: &mut Vec<String>, output_index: usize, item: &Value) {
+    let item_id = item.get("id").and_then(Value::as_str).unwrap_or("");
+    let input = item.get("input").and_then(Value::as_str).unwrap_or("");
+    if !input.is_empty() {
+        events.push(sse(
+            "response.custom_tool_call_input.delta",
+            json!({
+                "type": "response.custom_tool_call_input.delta",
+                "item_id": item_id,
+                "output_index": output_index,
+                "delta": input
+            }),
+        ));
+    }
+    events.push(sse(
+        "response.custom_tool_call_input.done",
+        json!({
+            "type": "response.custom_tool_call_input.done",
+            "item_id": item_id,
+            "output_index": output_index,
+            "input": input
+        }),
+    ));
 }
 
 fn append_message_events(events: &mut Vec<String>, output_index: usize, item: &Value) {
