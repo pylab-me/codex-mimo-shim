@@ -4,7 +4,8 @@ use uuid::Uuid;
 
 use crate::error::ShimError;
 use crate::responses::tools::{
-    ToolIdentityRegistry, chat_tool_calls_to_responses_items, make_assistant_tool_calls_message,
+    ToolIdentityRegistry, chat_tool_calls_to_responses_items, extract_chat_tool_calls_from_message,
+    make_assistant_tool_calls_message,
 };
 use crate::xiaomi::reasoning::{
     ReasoningPolicy, apply_reasoning_policy_to_assistant_message, extract_reasoning_content,
@@ -29,11 +30,7 @@ pub fn build_response_object(
 ) -> Result<BuiltResponse, ShimError> {
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let message = chat_result.message;
-    let tool_calls = message
-        .get("tool_calls")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let tool_calls = extract_chat_tool_calls_from_message(&message);
 
     let mut updated = base_chat_messages.to_vec();
     let reasoning_content = extract_reasoning_content(&message);

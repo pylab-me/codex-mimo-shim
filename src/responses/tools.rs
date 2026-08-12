@@ -219,6 +219,52 @@ pub fn response_function_call_item_to_chat_tool_call(item: &Value) -> Value {
     })
 }
 
+pub fn responses_tool_choice_to_chat_tool_choice(tool_choice: Option<&Value>) -> Option<Value> {
+    let value = tool_choice?;
+    let Some(choice) = value.as_object() else {
+        return Some(value.clone());
+    };
+
+    if choice.get("type").and_then(Value::as_str) != Some("function") {
+        return Some(value.clone());
+    }
+    let name = choice
+        .get("name")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            choice
+                .get("function")
+                .and_then(Value::as_object)
+                .and_then(|function| function.get("name"))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or("");
+    Some(json!({"type": "function", "function": {"name": name}}))
+}
+
+pub fn extract_chat_tool_calls_from_message(message: &Value) -> Vec<Value> {
+    if let Some(tool_calls) = message.get("tool_calls").and_then(Value::as_array) {
+        return tool_calls.clone();
+    }
+
+    let Some(function) = message.get("function_call").and_then(Value::as_object) else {
+        return Vec::new();
+    };
+    vec![json!({
+        "id": message
+            .get("tool_call_id")
+            .and_then(Value::as_str)
+            .unwrap_or("call_local_unknown"),
+        "type": "function",
+        "function": {
+            "name": function.get("name").and_then(Value::as_str).unwrap_or(""),
+            "arguments": normalize_tool_arguments(
+                function.get("arguments").or_else(|| function.get("parameters"))
+            )
+        }
+    })]
+}
+
 fn join_namespace_tool_name(namespace_name: &str, function_name: &str) -> String {
     let namespace_name = namespace_name.trim_end_matches('_');
     if namespace_name.is_empty() {

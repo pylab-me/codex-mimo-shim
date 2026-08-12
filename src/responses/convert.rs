@@ -4,7 +4,8 @@ use uuid::Uuid;
 use crate::error::ShimError;
 use crate::responses::tools::{
     ToolIdentityRegistry, make_assistant_tool_calls_message, make_tool_message,
-    response_function_call_item_to_chat_tool_call, responses_tools_to_chat_tools,
+    response_function_call_item_to_chat_tool_call, responses_tool_choice_to_chat_tool_choice,
+    responses_tools_to_chat_tools,
 };
 use crate::xiaomi::reasoning::{
     ReasoningPolicy, apply_reasoning_policy_to_chat_messages, copy_incoming_reasoning_content,
@@ -87,8 +88,9 @@ pub fn convert_responses_to_chat(
     let tool_conversion = responses_tools_to_chat_tools(obj.get("tools"));
     if !tool_conversion.tools.is_empty() {
         payload.insert("tools".to_string(), Value::Array(tool_conversion.tools));
-        if let Some(tool_choice) = obj.get("tool_choice") {
-            payload.insert("tool_choice".to_string(), tool_choice.clone());
+        if let Some(tool_choice) = responses_tool_choice_to_chat_tool_choice(obj.get("tool_choice"))
+        {
+            payload.insert("tool_choice".to_string(), tool_choice);
         }
         if forward_parallel_tool_calls {
             if let Some(parallel) = obj.get("parallel_tool_calls") {
